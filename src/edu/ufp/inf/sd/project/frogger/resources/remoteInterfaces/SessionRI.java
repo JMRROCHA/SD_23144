@@ -13,11 +13,11 @@ public interface SessionRI extends Remote {
 
     HashMap<String, GameSessionManagement> listGameSessions() throws RemoteException;
 
-    void attachToGameSession(String username, String gameSessionQueue) throws RemoteException;
+    void attachToGameSession(String roomName) throws RemoteException;
 
-    void detachFromGameSession(String username, String gameSessionQueue) throws RemoteException;
+    void detachFromGameSession(String roomName) throws RemoteException;
 
-    void newGameSession(String username) throws RemoteException;
+    void newGameSession() throws RemoteException;
 
     String getUsername() throws RemoteException;
 

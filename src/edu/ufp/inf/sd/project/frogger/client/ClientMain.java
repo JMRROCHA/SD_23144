@@ -18,7 +18,7 @@ import java.util.HashMap;
 
 public class ClientMain extends javax.swing.JFrame {
 
-    private static SessionRI sessionRI;
+    public static SessionRI sessionRI;
     private static javax.swing.JTable jTableGameSessions;
     private final SetupContextRMI contextRMI;
     private final FactoryRI factoryRI;
@@ -66,6 +66,8 @@ public class ClientMain extends javax.swing.JFrame {
                 }
             });
         });
+
+        updateGameSessionsTable();
 
     }
 
@@ -220,13 +222,11 @@ public class ClientMain extends javax.swing.JFrame {
         JMenuItem item = new JMenuItem("Join Session");
 
         item.addActionListener((ActionEvent e) -> {
-            attachToGameSession();
-            //String row = jTable_GameSessions.getModel().getValueAt(jTable_GameSessions.getSelectedRow(), jTable_GameSessions.getSelectedColumn()).toString();
-            //JOptionPane.showMessageDialog(null, row);
+            String roomName=jTableGameSessions.getModel().getValueAt(jTableGameSessions.getSelectedRow(),0).toString();
+            attachToGameSession(roomName);
         });
 
         menu.add(item);
-
 
         int r = jTableGameSessions.rowAtPoint(evt.getPoint());
         if (r >= 0 && r < jTableGameSessions.getRowCount()) {
@@ -246,13 +246,14 @@ public class ClientMain extends javax.swing.JFrame {
 
     private void jTableGameSessionsMousePressed(MouseEvent evt) {
         if (evt.getClickCount() == 2 && jTableGameSessions.getSelectedRow() != -1) {
-            attachToGameSession();
+            String roomName=jTableGameSessions.getModel().getValueAt(jTableGameSessions.getSelectedRow(),0).toString();
+            attachToGameSession(roomName);
         }
     }
 
     private void doNewGameSession() {
         try {
-            sessionRI.newGameSession(sessionRI.getUsername());
+            sessionRI.newGameSession();
             updateGameSessionsTable();
             subscribeNewRoom(sessionRI.getUsername());
         } catch (RemoteException ex) {
@@ -260,18 +261,17 @@ public class ClientMain extends javax.swing.JFrame {
         }
     }
 
-    private void attachToGameSession() {
+    private void attachToGameSession(String roomName) {
         try {
-            sessionRI.attachToGameSession(sessionRI.getUsername(), "room");
+            sessionRI.attachToGameSession(roomName);
             updateGameSessionsTable();
-            subscribeNewRoom("room");
+            subscribeNewRoom(roomName);
         } catch (RemoteException e) {
             e.printStackTrace();
         }
     }
 
     private void subscribeNewRoom(String roomName) {
-
         MessagesExchange messagesExchange = new MessagesExchange(argsRMQ);
         messagesExchange.run();
         messagesExchange.consumeRMQ(roomName);

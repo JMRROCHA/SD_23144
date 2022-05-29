@@ -52,7 +52,6 @@ public class Server extends javax.swing.JFrame {
 
         initContextRMI();
 
-
         argsRMQ.put("hostIp", hostIp);
         argsRMQ.put("rmqPort", args[3]);
         argsRMQ.put("exchangeName", args[4]);
@@ -193,6 +192,7 @@ public class Server extends javax.swing.JFrame {
             if (registry != null) {
                 factoryRI = new FactoryImpl() {
                 };
+
                 String serviceUrl = contextRMI.getServicesUrl(0);
                 registry.rebind(serviceUrl, factoryRI);
             } else {

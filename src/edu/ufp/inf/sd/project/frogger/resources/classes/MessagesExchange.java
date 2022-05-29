@@ -35,11 +35,11 @@ public class MessagesExchange implements Runnable {
     }
 
     public void consumeRMQ(String routingKey) {
-
         try {
             channelRMQ.queueBind(queueName, exchangeName, routingKey);
             DeliverCallback deliverCallback = (consumerTag, delivery) -> {
                 String message = (new String(delivery.getBody(), StandardCharsets.UTF_8));
+
                 System.out.println("[x] Consumer Tag[" + consumerTag + "]Received '" + message + "'" + routingKey + exchangeName);
 
             };
@@ -49,7 +49,6 @@ public class MessagesExchange implements Runnable {
         } catch (IOException e) {
             e.printStackTrace();
         }
-
     }
 
     public void publishRMQ(String routingKey, String message) {

@@ -1,5 +1,6 @@
 package edu.ufp.inf.sd.project.frogger.client;
 
+import com.auth0.jwt.algorithms.*;
 import edu.ufp.inf.sd.project.frogger.resources.remoteInterfaces.FactoryRI;
 import edu.ufp.inf.sd.project.frogger.resources.remoteInterfaces.SessionRI;
 import edu.ufp.inf.sd.project.frogger.util.rmisetup.SetupContextRMI;
@@ -52,6 +53,8 @@ public class Client extends javax.swing.JFrame {
 
         initGuiComponents();
         initContextRMI();
+
+        Algorithm algorithm = Algorithm.HMAC256("null");
     }
 
     public static void main(String[] args) throws RemoteException {
@@ -66,7 +69,7 @@ public class Client extends javax.swing.JFrame {
                 System.exit(-1);
             } else {
                 client = new Client(args);
-                client.lookupService();
+                client.lookupServiceFactory();
 
                 client.setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
                 client.setTitle("Login");
@@ -224,7 +227,7 @@ public class Client extends javax.swing.JFrame {
         }
     }
 
-    private Remote lookupService() {
+    private Remote lookupServiceFactory() {
         try {
             Registry registry = contextRMI.getRegistry();
             if (registry != null) {

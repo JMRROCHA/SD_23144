@@ -1,6 +1,7 @@
 package edu.ufp.inf.sd.project.frogger.resources.remoteInterfaces;
 
 import edu.ufp.inf.sd.project.frogger.resources.classes.GameSessionManagement;
+import edu.ufp.inf.sd.project.frogger.resources.classes.Player;
 import edu.ufp.inf.sd.project.frogger.server.Server;
 
 import java.rmi.RemoteException;
@@ -58,7 +59,6 @@ public class SessionImpl extends UnicastRemoteObject implements SessionRI {
                     }
                 }
         );
-
     }
 
     @Override
@@ -67,28 +67,51 @@ public class SessionImpl extends UnicastRemoteObject implements SessionRI {
     }
 
     @Override
-    public void attachToGameSession(String username, String gameSessionQueue) throws RemoteException {
-        GameSessionManagement gameSession = gameSessions.get(gameSessionQueue);
-        gameSession.addPlayer(username);
+    public void attachToGameSession(String roomName) throws RemoteException {
+        removeUserInGameSessions(this.username);
+        GameSessionManagement gameSession = gameSessions.get(roomName);
+        gameSession.addPlayer(this.username);
 
         Server.updateTables();
     }
 
     @Override
-    public void detachFromGameSession(String username, String gameSessionQueue) throws RemoteException {
-        GameSessionManagement gameSession = gameSessions.get(gameSessionQueue);
-        gameSession.removePlayer(username);
+    public void detachFromGameSession(String roomName) throws RemoteException {
+        GameSessionManagement gameSession = gameSessions.get(roomName);
+        gameSession.removePlayer(this.username);
+
+        if (gameSession.getPlayers().size()<1){
+            gameSessions.remove(roomName);
+        }
 
         Server.updateTables();
     }
 
     @Override
-    public void newGameSession(String username) throws RemoteException {
+    public void newGameSession() throws RemoteException {
         GameSessionManagement gameSession = new GameSessionManagement();
-        gameSession.addPlayer(username);
-        gameSessions.put(username, gameSession);
+        gameSessions.put(this.username, gameSession);
+        attachToGameSession(this.username);
 
-        Server.updateTables();
-        Server.newExchangeRoom(username);
+        Server.newExchangeRoom(this.username);
     }
+
+    private void removeUserInGameSessions(String username) {
+        gameSessions.forEach(
+                (key, value) -> {
+                    for (Player player : value.getPlayers()) {
+                        if (player.getUsername().equals(username)) {
+                            try {
+                                detachFromGameSession(key);
+                            } catch (RemoteException e) {
+                                e.printStackTrace();
+                            }
+                        }
+                    }
+                }
+        );
+
+    }
+
+
 }

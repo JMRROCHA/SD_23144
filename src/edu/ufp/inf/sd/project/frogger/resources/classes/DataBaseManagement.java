@@ -9,7 +9,9 @@ public class DataBaseManagement {
     public DataBaseManagement() {
 
         users = new ArrayList<>();
-        users.add(new User("jmrr", "jmrr", "Jorge"));
+        users.add(new User("1", "1", "1"));
+        users.add(new User("2", "2", "2"));
+        users.add(new User("3", "3", "3"));
     }
 
 

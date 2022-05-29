@@ -2,12 +2,14 @@ package edu.ufp.inf.sd.project.frogger.resources.classes;
 
 import java.util.ArrayList;
 
-public class DataBase {
+public class DataBaseManagement {
 
     private final ArrayList<User> users;
 
-    public DataBase() {
+    public DataBaseManagement() {
+
         users = new ArrayList<>();
+        users.add(new User("jmrr", "jmrr", "Jorge"));
     }
 
 

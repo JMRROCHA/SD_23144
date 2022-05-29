@@ -1,68 +1,55 @@
-@REM ************************************************************************************
-@REM Description: run Pingclient
-@REM Author: Rui Moreira
-@REM Date: 20/02/2019
-@REM pwd: /Users/rui/Documents/NetBeansProjects/SD/src/edu/ufp/inf/sd/rmi/Calculator
-@REM http://docs.oracle.com/javase/tutorial/rmi/running.html
-@REM ************************************************************************************
-
-@REM ======================== Use Shell Parameters ========================
-@REM Script usage: setenv <role> (where role should be: server / client)
 @SET SCRIPT_ROLE=%1
 
-@REM ======================== CHANGE BELOW ACCORDING YOUR PROJECT and PC SETTINGS ========================
-@REM ==== PC STUFF ====
 @Set USERNAME=jorgerocha
 
 @Set WORKDRIVE=C
 @Set JDK=C:\\Program Files\\Java\\jdk-16.0.1
-@REM JDK=%WORKDRIVE%:\Programas\Java\jdk1.8.0_60
-@REM These vars will be used to check the output folder (whereto classes are generated)
-@SET NETBEANS=NetBeans
-@SET INTELLIJ=IntelliJ
-@REM Set CURRENT_IDE=%INTELLIJ%
-@Set CURRENT_IDE=%INTELLIJ%
 
-@REM ==== JAVA NAMING STUFF ====
 @Set JAVAPROJ_NAME=FroggerGame
-@REM JAVAPROJ=%WORKDRIVE%:\\Users\\%USERNAME%\\Documents\\NetBeansProjects\\%JAVAPROJ_NAME%
+
 @set JAVAPROJ=D:\\Development\\IntelliJProjects\\SD_23144\
 @Set PACKAGE=frogger
 @Set PACKAGE_PREFIX=edu.ufp.inf.sd.project
 @Set PACKAGE_PREFIX_FOLDERS=edu/ufp/inf/sd/project
-@Set SERVICE_NAME_ON_REGISTRY=FroggerService
-@Set CLIENT_CLASS_PREFIX=Game
-@Set SERVER_CLASS_PREFIX=Game
-@Set CLIENT_CLASS_POSTFIX=Client
-@Set SERVER_CLASS_POSTFIX=Server
-@Set SERVANT_IMPL_CLASS_POSTFIX=Impl
-@REM Set SETUP_CLASS_POSTFIX=Setup
-@REM Set SERVANT_ACTIVATABLE_IMPL_CLASS_POSTFIX=ActivatableImpl
 
-@REM ==== NETWORK STUFF ====
-@REM Must run http server on codebase host:
-@REM Python 2: python -m SimpleHTTPServer 8000
-@REM Python 3: python -m http.server 8000
-@Set MYLOCALIP=localhost
-@REM MYLOCALIP=192.168.56.1
-@Set REGISTRY_HOST=%MYLOCALIP%
+@Set SERVICE_NAME_ON_REGISTRY=FroggerService
+
+@Set SERVER_CLASS=Server
+@Set CLIENT_CLASS=Client
+
+@Set SERVANT_IMPL_CLASS_POSTFIX=Impl
+
+@Set QUEUE_NAME_PREFIX=frogger
+@Set EXCHANGE_NAME_PREFIX=frogger
+
+
+@Set HOST=localhost
+
+@Set REGISTRY_HOST=%HOST%
 @Set REGISTRY_PORT=1099
-@Set SERVER_RMI_HOST=%REGISTRY_HOST%
+
+@Set BROKER_HOST=%HOST%
+@Set BROKER_PORT=5672
+
+@Set SERVER_RMI_HOST=%HOST%
 @Set SERVER_RMI_PORT=1098
-@Set SERVER_CODEBASE_HOST=%SERVER_RMI_HOST%
+@Set SERVER_CODEBASE_HOST=%HOST%
 @Set SERVER_CODEBASE_PORT=8000
-@Set CLIENT_RMI_HOST=%REGISTRY_HOST%
+@Set CLIENT_RMI_HOST=%HOST%
 @Set CLIENT_RMI_PORT=1097
-@Set CLIENT_CODEBASE_HOST=%CLIENT_RMI_HOST%
+@Set CLIENT_CODEBASE_HOST=%HOST%
 @Set CLIENT_CODEBASE_PORT=8000
 
-@REM ======================== DO NOT CHANGE AFTER THIS POINT ========================
+@Set BROKER_QUEUE=%QUEUE_NAME_PREFIX%_queue
+@Set BROKER_EXCHANGE=%EXCHANGE_NAME_PREFIX%_exchange
+@Set BROKER_SERVICE_URL=http://%BROKER_HOST%:%BROKER_PORT%
+
 @Set JAVAPACKAGE=%PACKAGE_PREFIX%.%PACKAGE%
 @Set JAVAPACKAGEROLE=%PACKAGE_PREFIX%.%PACKAGE%.%SCRIPT_ROLE%
 @Set JAVAPACKAGEPATH=%PACKAGE_PREFIX_FOLDERS%/%PACKAGE%/%SCRIPT_ROLE%
 @Set JAVASCRIPTSPATH=%PACKAGE_PREFIX_FOLDERS%/%PACKAGE%/runscripts
-@REM Set JAVASECURITYPATH=%PACKAGE_PREFIX_FOLDERS%/%PACKAGE%/securitypolicies
 @Set JAVASECURITYPATH=edu\\ufp\\inf\\sd\\project\\%PACKAGE%\\securitypolicies
+
 @Set SERVICE_NAME=%SERVICE_PREFIX%Service
 @Set SERVICE_URL=rmi://%REGISTRY_HOST%:%REGISTRY_PORT%/%SERVICE_NAME%
 
@@ -71,47 +58,28 @@
 
 @Set PATH=%PATH%;.;%JDK%\bin
 
-@REM Set JAVAPROJ_CLASSES=build\classes\
-IF "%CURRENT_IDE%"=="%NETBEANS%" (
-    @Set JAVAPROJ_CLASSES=build\\classes\\
-    @Set JAVAPROJ_SRC=src
-    @Set JAVAPROJ_DIST=dist
-    @Set JAVAPROJ_DIST_LIB=lib
-)
-IF "%CURRENT_IDE%"=="%INTELLIJ%" (
-    @Set JAVAPROJ_CLASSES=out\\production\\%JAVAPROJ_NAME%\\
-    @Set JAVAPROJ_SRC=src
-    @Set JAVAPROJ_DIST=out\\artifacts\\%JAVAPROJ_NAME%\\
-    @Set JAVAPROJ_DIST_LIB=lib
-)
 
-@set JAVAPROG_CLASSES_FOLDER=%JAVAPROJ%\%JAVAPROJ_CLASSES%
+@Set JAVAPROJ_CLASSES=out\\production\\%JAVAPROJ_NAME%\\
+@Set JAVAPROJ_CLASSES_FOLDER=%JAVAPROJ%\\%JAVAPROJ_CLASSES%
+@Set JAVAPROJ_SRC=src
+@Set JAVAPROJ_DIST=out\\artifacts\\%JAVAPROJ_NAME%\\
+@Set JAVAPROJ_DIST_LIB=lib
 @set JAVAPROJ_DIST_FOLDER=%JAVAPROJ%\%JAVAPROJ_DIST%
 @set JAVAPROJ_JAR_FILE=%JAVAPROJ_NAME%.jar
+@Set JAVA_LIB_FOLDER=%JAVAPROJ%\\%JAVAPROJ_DIST_LIB%
+@Set JAVA_RABBITMQ_TOOLS=%JAVA_LIB_FOLDER%\\amqp-client-5.11.0.jar;%JAVA_LIB_FOLDER%\\slf4j-api-1.7.30.jar;%JAVA_LIB_FOLDER%\\slf4j-simple-1.7.30.jar
 
-@set CLASSPATH=.;%JAVAPROG_CLASSES_FOLDER%
-@REM @set CLASSPATH=.;%JAVAPROJ_DIST_FOLDER%/%JAVAPROJ_JAR_FILE%.jar
 
+@Set CLASSPATH=.;%JAVAPROJ_JAR_FILE%;%JAVA_RABBITMQ_TOOLS%;%JAVAPROJ_CLASSES_FOLDER%
 @Set ABSPATH2CLASSES=%JAVAPROJ%\%JAVAPROJ_CLASSES%
-@Set ABSPATH2SRC=%JAVAPROJ%\%JAVAPROJ_SRC%
 @Set ABSPATH2DIST=%JAVAPROJ%/%JAVAPROJ_DIST%
+@Set ABSPATH2SRC=%JAVAPROJ%/%JAVAPROJ_SRC%
 
-@REM #java.rmi.server.codebase property specifies the location from which classes of this server can be downloaded.
-@REM Set SERVER_CODEBASE=http://%SERVER_CODEBASE_HOST%:%SERVER_CODEBASE_PORT%/%JAVAPROJ_CLASSES%
-@REM Set CLIENT_CODEBASE=http://%CLIENT_CODEBASE_HOST%:%CLIENT_CODEBASE_PORT%/%JAVAPROJ_CLASSES%
 @Set SERVER_CODEBASE=http://%SERVER_CODEBASE_HOST%:%SERVER_CODEBASE_PORT%/%JAVAPROJ_JAR_FILE%
 @Set CLIENT_CODEBASE=http://%CLIENT_CODEBASE_HOST%:%CLIENT_CODEBASE_PORT%/%JAVAPROJ_JAR_FILE%
-
-@REM #Policy tool editor: /Library/Java/JavaVirtualMachines/jdk1.8.0_25.jdk/Contents/Home/bin/policytool
-@REM Set SERVER_SECURITY_POLICY=file:///%JAVAPROJ%/%JAVAPROJ_SRC%/%JAVASECURITYPATH%/serverAllPermition.policy
-@REM Set CLIENT_SECURITY_POLICY=file:///%JAVAPROJ%/%JAVAPROJ_SRC%/%JAVASECURITYPATH%/clientAllPermition.policy
-@REM Set SETUP_SECURITY_POLICY=file:///%JAVAPROJ%/%JAVAPROJ_SRC%/%JAVASECURITYPATH%/setup.policy
-@REM Set RMID_SECURITY_POLICY=file:///%JAVAPROJ%/%JAVAPROJ_SRC%/%JAVASECURITYPATH%/rmid.policy
-@REM Set GROUP_SECURITY_POLICY=file:///%JAVAPROJ%/%JAVAPROJ_SRC%/%JAVASECURITYPATH%/group.policy
 
 @Set SERVER_SECURITY_POLICY=file:///%JAVAPROJ%\\%JAVAPROJ_SRC%\\%JAVASECURITYPATH%\\serverAllPermition.policy
 @Set CLIENT_SECURITY_POLICY=file:///%JAVAPROJ%\\%JAVAPROJ_SRC%\\%JAVASECURITYPATH%\\clientAllPermition.policy
 @Set SETUP_SECURITY_POLICY=file:///%JAVAPROJ%\\%JAVAPROJ_SRC%\\%JAVASECURITYPATH%\\setup.policy
 @Set RMID_SECURITY_POLICY=file:///%JAVAPROJ%\\%JAVAPROJ_SRC%\\%JAVASECURITYPATH%\\rmid.policy
 @Set GROUP_SECURITY_POLICY=file:///%JAVAPROJ%\\%JAVAPROJ_SRC%\\%JAVASECURITYPATH%\\group.policy
-

@@ -1,7 +1,7 @@
 package edu.ufp.inf.sd.project.frogger.client;
 
-import edu.ufp.inf.sd.project.frogger.resources.remoteInterfaces.GameFactoryRI;
-import edu.ufp.inf.sd.project.frogger.resources.remoteInterfaces.GameSessionRI;
+import edu.ufp.inf.sd.project.frogger.resources.remoteInterfaces.FactoryRI;
+import edu.ufp.inf.sd.project.frogger.resources.remoteInterfaces.SessionRI;
 import edu.ufp.inf.sd.project.frogger.util.rmisetup.SetupContextRMI;
 
 import javax.swing.*;
@@ -10,13 +10,18 @@ import java.rmi.NotBoundException;
 import java.rmi.Remote;
 import java.rmi.RemoteException;
 import java.rmi.registry.Registry;
+import java.util.HashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-public class GameClient extends javax.swing.JFrame {
+public class Client extends javax.swing.JFrame {
 
-    private static GameClient gameClient;
-    private static GameSessionRI gameSessionRI;
+    private static Client client;
+    private static SessionRI sessionRI;
+    private final String hostIp;
+    private final String rmiPort;
+    private final String rmiServiceName;
+    HashMap<String, String> argsRMQ = new HashMap<>();
     private javax.swing.JButton jButton_Login;
     private javax.swing.JButton jButton_NewAccount;
     private javax.swing.JButton jButton_TogglePanel;
@@ -33,11 +38,20 @@ public class GameClient extends javax.swing.JFrame {
     private javax.swing.JTextField jTextField_NAUsername;
     private javax.swing.JTextField jTextField_Username;
     private SetupContextRMI contextRMI;
-    private GameFactoryRI gameFactoryRI;
+    private FactoryRI factoryRI;
 
-    public GameClient(String[] args) {
+    public Client(String[] args) {
+
+        hostIp = args[0];
+        rmiPort = args[1];
+        rmiServiceName = args[2];
+
+        argsRMQ.put("hostIp", hostIp);
+        argsRMQ.put("rmqPort", args[3]);
+        argsRMQ.put("exchangeName", args[4]);
+
         initGuiComponents();
-        initContextRMI(args);
+        initContextRMI();
     }
 
     public static void main(String[] args) throws RemoteException {
@@ -48,19 +62,19 @@ public class GameClient extends javax.swing.JFrame {
         }
 
         java.awt.EventQueue.invokeLater(() -> {
-            if (args != null && args.length < 2) {
+            if (args != null && args.length < 4) {
                 System.exit(-1);
             } else {
-                gameClient = new GameClient(args);
-                gameClient.lookupService();
+                client = new Client(args);
+                client.lookupService();
 
-                gameClient.setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
-                gameClient.setTitle("Login");
-                gameClient.setResizable(false);
-                gameClient.setLocationRelativeTo(null);
-                gameClient.setVisible(true);
-                gameClient.setSize(225, 270);
-                gameClient.pack();
+                client.setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
+                client.setTitle("Login");
+                client.setResizable(false);
+                client.setLocationRelativeTo(null);
+                client.setVisible(true);
+                client.setSize(225, 270);
+                client.pack();
             }
         });
     }
@@ -83,7 +97,7 @@ public class GameClient extends javax.swing.JFrame {
         jButton_Login = new javax.swing.JButton();
         jButton_TogglePanel = new javax.swing.JButton();
 
-        jPanel_NewAccount.setBorder(javax.swing.BorderFactory.createEtchedBorder());
+        jPanel_NewAccount.setBorder(javax.swing.BorderFactory.createTitledBorder("New Account"));
         jLabel1.setText("Username");
 
         jLabel2.setText("Password");
@@ -128,7 +142,7 @@ public class GameClient extends javax.swing.JFrame {
                                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
-        jPanel_Login.setBorder(javax.swing.BorderFactory.createEtchedBorder());
+        jPanel_Login.setBorder(javax.swing.BorderFactory.createTitledBorder("Login"));
         jPanel_Login.setPreferredSize(new java.awt.Dimension(212, 211));
 
         jLabel_Login.setText("Username");
@@ -202,13 +216,9 @@ public class GameClient extends javax.swing.JFrame {
         pack();
     }
 
-    private void initContextRMI(String[] args) {
+    private void initContextRMI() {
         try {
-            SetupContextRMI.printArgs(this.getClass().getName(), args);
-            String registryIP = args[0];
-            String registryPort = args[1];
-            String serviceName = args[2];
-            contextRMI = new SetupContextRMI(this.getClass(), registryIP, registryPort, new String[]{serviceName});
+            contextRMI = new SetupContextRMI(this.getClass(), hostIp, rmiPort, new String[]{rmiServiceName});
         } catch (RemoteException e) {
             e.printStackTrace();
         }
@@ -219,21 +229,22 @@ public class GameClient extends javax.swing.JFrame {
             Registry registry = contextRMI.getRegistry();
             if (registry != null) {
                 String serviceUrl = contextRMI.getServicesUrl(0);
-                gameFactoryRI = (GameFactoryRI) registry.lookup(serviceUrl);
+                factoryRI = (FactoryRI) registry.lookup(serviceUrl);
             } else {
                 Logger.getLogger(this.getClass().getName()).log(Level.INFO, "registry not bound (check IPs). :(");
             }
         } catch (RemoteException | NotBoundException ex) {
             Logger.getLogger(this.getClass().getName()).log(Level.SEVERE, null, ex);
         }
-        return gameFactoryRI;
+        return factoryRI;
     }
 
     private void doNewAccount() {
         try {
-            boolean result = this.gameFactoryRI.register(jTextField_NAUsername.getText(), String.valueOf(jPasswordField_NAPassword.getPassword()), jTextField_NAName.getText());
+            boolean result = this.factoryRI.register(jTextField_NAUsername.getText(), String.valueOf(jPasswordField_NAPassword.getPassword()), jTextField_NAName.getText());
             if (result == true) {
                 JOptionPane.showMessageDialog(null, "User Created!");
+                togglePanel();
             } else {
                 JOptionPane.showMessageDialog(null, "Error creating user");
             }
@@ -244,12 +255,12 @@ public class GameClient extends javax.swing.JFrame {
 
     private void doLogin() {
         try {
-            gameSessionRI = this.gameFactoryRI.login(jTextField_Username.getText(), String.valueOf(jPasswordField_Password.getPassword()));
-            if (gameSessionRI == null) {
+            sessionRI = this.factoryRI.login(jTextField_Username.getText(), String.valueOf(jPasswordField_Password.getPassword()));
+            if (sessionRI == null) {
                 JOptionPane.showMessageDialog(null, "Login Error!");
             } else {
-                new GameClientMain(contextRMI, gameFactoryRI, gameSessionRI);
-                this.dispose();
+                new ClientMain(contextRMI, factoryRI, sessionRI, argsRMQ);
+                client.dispose();
             }
         } catch (RemoteException e) {
             e.printStackTrace();
@@ -257,14 +268,15 @@ public class GameClient extends javax.swing.JFrame {
     }
 
     private void togglePanel() {
-        if (!jPanel_NewAccount.isVisible()) {
-            jPanel_NewAccount.setVisible(true);
-            this.setSize(439, 270);
-            jButton_TogglePanel.setText("<<");
-        } else {
+        if (jPanel_NewAccount.isVisible()) {
             jPanel_NewAccount.setVisible(false);
             this.setSize(225, 270);
             jButton_TogglePanel.setText(">>");
+        } else {
+            jPanel_NewAccount.setVisible(true);
+            this.setSize(439, 270);
+            jButton_TogglePanel.setText("<<");
+
         }
     }
 }

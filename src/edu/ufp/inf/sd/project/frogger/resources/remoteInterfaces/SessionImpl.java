@@ -2,6 +2,7 @@ package edu.ufp.inf.sd.project.frogger.resources.remoteInterfaces;
 
 import edu.ufp.inf.sd.project.frogger.resources.classes.GameSessionManagement;
 import edu.ufp.inf.sd.project.frogger.resources.classes.Player;
+import edu.ufp.inf.sd.project.frogger.server.Log;
 import edu.ufp.inf.sd.project.frogger.server.Server;
 
 import java.rmi.RemoteException;
@@ -55,6 +56,7 @@ public class SessionImpl extends UnicastRemoteObject implements SessionRI {
                 (key, value) -> {
                     if (value == this) {
                         sessions.remove(key);
+                        Log.write(SessionImpl.class.getSimpleName(), "User Logout:" + username);
                         Server.updateTables();
                     }
                 }
@@ -63,6 +65,7 @@ public class SessionImpl extends UnicastRemoteObject implements SessionRI {
 
     @Override
     public HashMap<String, GameSessionManagement> listGameSessions() throws RemoteException {
+        Log.write(SessionImpl.class.getSimpleName(), "User listGameSessions(): " + username);
         return gameSessions;
     }
 
@@ -71,7 +74,7 @@ public class SessionImpl extends UnicastRemoteObject implements SessionRI {
         removeUserInGameSessions(this.username);
         GameSessionManagement gameSession = gameSessions.get(roomName);
         gameSession.addPlayer(this.username);
-
+        Log.write(SessionImpl.class.getSimpleName(), "User attachToGameSession(): " + roomName);
         Server.updateTables();
     }
 
@@ -80,10 +83,11 @@ public class SessionImpl extends UnicastRemoteObject implements SessionRI {
         GameSessionManagement gameSession = gameSessions.get(roomName);
         gameSession.removePlayer(this.username);
 
-        if (gameSession.getPlayers().size()<1){
+        if (gameSession.getPlayers().size() < 1) {
             gameSessions.remove(roomName);
         }
 
+        Log.write(SessionImpl.class.getSimpleName(), "User detachFromGameSession(): " + roomName);
         Server.updateTables();
     }
 
@@ -93,7 +97,8 @@ public class SessionImpl extends UnicastRemoteObject implements SessionRI {
         gameSessions.put(this.username, gameSession);
         attachToGameSession(this.username);
 
-        Server.newExchangeRoom(this.username);
+        Log.write(SessionImpl.class.getSimpleName(), "User newGameSession(): " + this.username);
+        Server.consumeRMQ(this.username);
     }
 
     private void removeUserInGameSessions(String username) {

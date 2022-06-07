@@ -1,33 +1,42 @@
 package edu.ufp.inf.sd.project.frogger.server;
 
+import com.rabbitmq.client.*;
 import edu.ufp.inf.sd.project.frogger.resources.classes.GameSessionManagement;
-import edu.ufp.inf.sd.project.frogger.resources.classes.MessagesExchange;
 import edu.ufp.inf.sd.project.frogger.resources.classes.Player;
 import edu.ufp.inf.sd.project.frogger.resources.classes.User;
 import edu.ufp.inf.sd.project.frogger.resources.remoteInterfaces.FactoryImpl;
 import edu.ufp.inf.sd.project.frogger.resources.remoteInterfaces.FactoryRI;
 import edu.ufp.inf.sd.project.frogger.resources.remoteInterfaces.SessionRI;
+import edu.ufp.inf.sd.project.frogger.util.RabbitUtils;
 import edu.ufp.inf.sd.project.frogger.util.rmisetup.SetupContextRMI;
+import org.json.JSONObject;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.rmi.RemoteException;
 import java.rmi.registry.Registry;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.concurrent.TimeoutException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class Server extends javax.swing.JFrame {
-    static HashMap<String, String> argsRMQ = new HashMap<>();
+    private static final String exchangeName = "frogger_queue";
+    public static javax.swing.JTextArea jTextAreaLog;
     private static javax.swing.JTable jTableUserSessions;
     private static javax.swing.JTable jTableUsers;
     private static javax.swing.JTable jTableGameSessions;
+    private static Channel channelRMQ;
+    private static String queueName;
     private final String hostIp;
     private final String rmiPort;
     private final String rmiServiceName;
-    MessagesExchange messagesExchange;
+    private final String rmqPort;
+    private Connection connectionRMQ;
     private javax.swing.JMenuItem jButtonExit;
     private javax.swing.JMenuBar jMenuBar;
     private javax.swing.JMenu jMenuFile;
@@ -40,7 +49,6 @@ public class Server extends javax.swing.JFrame {
     private javax.swing.JScrollPane jScrollPane3;
     private javax.swing.JScrollPane jScrollPane4;
     private javax.swing.JTabbedPane jTabbedPane;
-    private javax.swing.JTextArea jTextAreaLog;
     private SetupContextRMI contextRMI;
     private FactoryRI factoryRI;
 
@@ -49,18 +57,14 @@ public class Server extends javax.swing.JFrame {
         hostIp = args[0];
         rmiPort = args[1];
         rmiServiceName = args[2];
+        rmqPort = args[3];
+        //exchangeName = args[4];
 
         initContextRMI();
-
-        argsRMQ.put("hostIp", hostIp);
-        argsRMQ.put("rmqPort", args[3]);
-        argsRMQ.put("exchangeName", args[4]);
-
-        messagesExchange = new MessagesExchange(argsRMQ);
-        messagesExchange.run();
-        messagesExchange.consumeRMQ("server");
-
+        initRMQ();
         initGuiComponents();
+
+        consumeRMQ("server.*");
     }
 
     public static void main(String[] args) {
@@ -106,6 +110,15 @@ public class Server extends javax.swing.JFrame {
         updateUsersTable();
         updateUserSessionsTable();
         updateGameSessionsTable();
+        updateGameSessionTableOnClients();
+    }
+
+    private static void updateGameSessionTableOnClients() {
+        publishRMQ("client.*", "UPDATE-TABLES", "SERVER", "null", "null");
+    }
+
+    private static void updateGameSessionTableOnServers() {
+        publishRMQ("server.*", "UPDATE-TABLES", "SERVER", "null", "null");
     }
 
     private static void updateUsersTable() {
@@ -171,10 +184,75 @@ public class Server extends javax.swing.JFrame {
         );
     }
 
-    public static void newExchangeRoom(String roomName) {
-        MessagesExchange messagesExchange = new MessagesExchange(argsRMQ);
-        messagesExchange.run();
-        messagesExchange.consumeRMQ(roomName);
+    public static void consumeRMQ(String routingKey) {
+        try {
+            channelRMQ.queueBind(queueName, exchangeName, routingKey);
+            DeliverCallback deliverCallback = (consumerTag, delivery) -> {
+                String message = (new String(delivery.getBody(), StandardCharsets.UTF_8));
+
+                executeMethod(message);
+                Log.write(Server.class.getSimpleName(), "[x] Consumer Tag[" + consumerTag + "]Received '" + message + "'" + routingKey + exchangeName);
+
+            };
+            CancelCallback cancelCallback = (consumerTag) -> System.out.println("[x] Consumer Tag[" + consumerTag + "]CancelCallback");
+
+            channelRMQ.basicConsume(queueName, true, deliverCallback, cancelCallback);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static void executeMethod(String message) {
+        JSONObject jsonRequest = new JSONObject(message);
+        String operation = jsonRequest.getString("operation");
+        String username = jsonRequest.getString("username");
+        JSONObject value = new JSONObject(jsonRequest.getString("value"));
+        String token = jsonRequest.getString("token");
+
+        switch (operation) {
+            case "PLAYER-READY":
+                String roomName = value.getString("roomName");
+                startGameSession(roomName);
+                break;
+            case "START-GAME":
+                break;
+            case "PLAYER-POSITION":
+                break;
+        }
+    }
+
+    public static void publishRMQ(String routingKey, String operation, String username, String value, String token) {
+        JSONObject message = new JSONObject();
+        message.put("operation", operation);
+        message.put("username", username);
+        message.put("value", value);
+        message.put("token", token);
+
+        try {
+            channelRMQ.basicPublish(exchangeName, routingKey, null, message.toString().getBytes(StandardCharsets.UTF_8));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static void startGameSession(String roomName) {
+        HashMap<String, GameSessionManagement> gameSessions = FactoryImpl.gameSessions;
+        GameSessionManagement gameSession = gameSessions.get(roomName);
+
+        gameSession.playerReady++;
+        if (gameSession.playerReady > 1) {
+            JSONObject value = new JSONObject();
+            value.put("null", "null");
+
+            try {
+                Thread.sleep(5000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
+            publishRMQ(roomName, "START-GAME", "SERVER", value.toString(), "null");
+        }
+
     }
 
     private void initContextRMI() {
@@ -354,5 +432,16 @@ public class Server extends javax.swing.JFrame {
 
         pack();
 
+    }
+
+    private void initRMQ() {
+        try {
+            connectionRMQ = RabbitUtils.newConnection2Server(hostIp, Integer.parseInt(rmqPort), "guest", "guest");
+            channelRMQ = RabbitUtils.createChannel2Server(connectionRMQ);
+            channelRMQ.exchangeDeclare(exchangeName, BuiltinExchangeType.TOPIC);
+            queueName = channelRMQ.queueDeclare().getQueue();
+        } catch (IOException | TimeoutException e) {
+            e.printStackTrace();
+        }
     }
 }

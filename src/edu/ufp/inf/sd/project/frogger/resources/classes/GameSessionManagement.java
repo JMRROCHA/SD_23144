@@ -6,11 +6,13 @@ import java.util.Date;
 
 public class GameSessionManagement implements Serializable {
 
+    public Integer playerReady;
     Date date;
     ArrayList<Player> players = new ArrayList<>();
 
     public GameSessionManagement() {
         this.date = new Date();
+        playerReady = 0;
     }
 
     public Date getDate() {

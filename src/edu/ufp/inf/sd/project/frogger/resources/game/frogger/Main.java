@@ -25,6 +25,8 @@
 
 package edu.ufp.inf.sd.project.frogger.resources.game.frogger;
 
+import com.rabbitmq.client.*;
+import edu.ufp.inf.sd.project.frogger.util.RabbitUtils;
 import jig.engine.ImageResource;
 import jig.engine.PaintableCanvas;
 import jig.engine.PaintableCanvas.JIGSHAPE;
@@ -34,10 +36,16 @@ import jig.engine.hli.ImageBackgroundLayer;
 import jig.engine.hli.StaticScreenGame;
 import jig.engine.physics.AbstractBodyLayer;
 import jig.engine.util.Vector2D;
+import org.json.JSONObject;
 
 import java.awt.event.KeyEvent;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.concurrent.TimeoutException;
 
-public class Main extends StaticScreenGame {
+
+public class Main extends StaticScreenGame implements Runnable {
     static final int WORLD_WIDTH = (13 * 32);
     static final int WORLD_HEIGHT = (14 * 32);
     static final Vector2D FROGGER_START = new Vector2D(6 * 32, WORLD_HEIGHT - 32);
@@ -54,8 +62,11 @@ public class Main extends StaticScreenGame {
     static final int GAME_INSTRUCTIONS = 3;
     static final int GAME_OVER = 4;
     private final FroggerCollisionDetection frogCol;
+    private final FroggerCollisionDetection frogCol2;
     private final Frogger frog;
+    private final Frogger frog2;
     private final AudioEfx audiofx;
+    //private final AudioEfx audiofx2;
     private final FroggerUI ui;
     private final WindGust wind;
     private final HeatWave hwave;
@@ -63,11 +74,19 @@ public class Main extends StaticScreenGame {
     private final AbstractBodyLayer<MovingEntity> movingObjectsLayer;
     private final AbstractBodyLayer<MovingEntity> particleLayer;
     private final ImageBackgroundLayer backgroundLayer;
+    private final String hostIp;
+    private final String rmqPort;
+    private static String exchangeName;
+    private final String routingkey ;
+    private final String userName ;
     public int GameLives = FROGGER_LIVES;
     public int GameScore = 0;
     public int levelTimer = DEFAULT_LEVEL_TIME;
     protected int GameState = GAME_INTRO;
     protected int GameLevel = STARTING_LEVEL;
+    private Connection connectionRMQ;
+    private static Channel channelRMQ;
+    private String queueName;
     private MovingEntityFactory roadLine1;
     private MovingEntityFactory roadLine2;
     private MovingEntityFactory roadLine3;
@@ -85,18 +104,25 @@ public class Main extends StaticScreenGame {
     /**
      * Initialize game objects
      */
-    public Main() {
+    public Main(HashMap<String, String> argsRMQ) {
 
         super(WORLD_WIDTH, WORLD_HEIGHT, false);
 
-        gameframe.setTitle("Frogger");
+        this.hostIp = argsRMQ.get("hostIp");
+        this.rmqPort = argsRMQ.get("rmqPort");
+        this.exchangeName = argsRMQ.get("exchangeName");
+        this.routingkey = argsRMQ.get("routingKey");
+        this.userName = argsRMQ.get("userName");
+
+        initRMQ();
+        consumeRMQ(routingkey);
+
+        gameframe.setTitle("Frogger " + userName);
 
         ResourceFactory.getFactory().loadResources(RSC_PATH, "resources.xml");
 
-        ImageResource bkg = ResourceFactory.getFactory().getFrames(
-                SPRITE_SHEET + "#background").get(0);
-        backgroundLayer = new ImageBackgroundLayer(bkg, WORLD_WIDTH,
-                WORLD_HEIGHT, ImageBackgroundLayer.TILE_IMAGE);
+        ImageResource bkg = ResourceFactory.getFactory().getFrames(SPRITE_SHEET + "#background").get(0);
+        backgroundLayer = new ImageBackgroundLayer(bkg, WORLD_WIDTH, WORLD_HEIGHT, ImageBackgroundLayer.TILE_IMAGE);
 
         // Used in CollisionObject, basically 2 different collision spheres
         // 30x30 is a large sphere (sphere that fits inside a 30x30 pixel rectangle)
@@ -107,6 +133,11 @@ public class Main extends StaticScreenGame {
         frog = new Frogger(this);
         frogCol = new FroggerCollisionDetection(frog);
         audiofx = new AudioEfx(frogCol, frog);
+
+        frog2 = new Frogger(this);
+        frogCol2 = new FroggerCollisionDetection(frog2);
+        //audiofx2 = new AudioEfx(frogCol2, frog2);
+
         ui = new FroggerUI(this);
         wind = new WindGust();
         hwave = new HeatWave();
@@ -116,12 +147,13 @@ public class Main extends StaticScreenGame {
         particleLayer = new AbstractBodyLayer.IterativeUpdate<MovingEntity>();
 
         initializeLevel(1);
+
+        JSONObject value = new JSONObject();
+        value.put("roomName", routingkey);
+        publishRMQ(routingkey, "PLAYER-READY", userName, value.toString(), "null");
+
     }
 
-    public static void main(String[] args) {
-        Main f = new Main();
-        f.run();
-    }
 
     public void initializeLevel(int level) {
 
@@ -228,6 +260,8 @@ public class Main extends StaticScreenGame {
     public void froggerKeyboardHandler() {
         keyboard.poll();
 
+        JSONObject value = new JSONObject();
+
         boolean keyReleased = false;
         boolean downPressed = keyboard.isPressed(KeyEvent.VK_DOWN);
         boolean upPressed = keyboard.isPressed(KeyEvent.VK_UP);
@@ -256,10 +290,30 @@ public class Main extends StaticScreenGame {
             keyReleased = true;
 
         if (listenInput) {
-            if (downPressed) frog.moveDown();
-            if (upPressed) frog.moveUp();
-            if (leftPressed) frog.moveLeft();
-            if (rightPressed) frog.moveRight();
+            if (downPressed) {
+                value.put("posX", frog.getPosition().getX());
+                value.put("posY", frog.getPosition().getY()-32);
+                publishRMQ(routingkey, "PLAYER-MOVE", userName, value.toString(), "null");
+                frog.moveDown();
+            }
+            if (upPressed) {
+                value.put("posX", frog.getPosition().getX());
+                value.put("posY", frog.getPosition().getY()+32);
+                publishRMQ(routingkey, "PLAYER-MOVE", userName, value.toString(), "null");
+                frog.moveUp();
+            }
+            if (leftPressed) {
+                value.put("posX", frog.getPosition().getX()-32);
+                value.put("posY", frog.getPosition().getY());
+                publishRMQ(routingkey, "PLAYER-MOVE", userName, value.toString(), "null");
+                frog.moveLeft();
+            }
+            if (rightPressed) {
+                value.put("posX", frog.getPosition().getX()+32);
+                value.put("posY", frog.getPosition().getY());
+                publishRMQ(routingkey, "PLAYER-MOVE", userName, value.toString(), "null");
+                frog.moveRight();
+            }
 
             if (keyPressed)
                 listenInput = false;
@@ -295,15 +349,17 @@ public class Main extends StaticScreenGame {
                     GameState = GAME_INTRO;
                     space_has_been_released = false;
                     break;
+                    /*
                 default:
                     GameLives = FROGGER_LIVES;
                     GameScore = 0;
                     GameLevel = STARTING_LEVEL;
                     levelTimer = DEFAULT_LEVEL_TIME;
                     frog.setPosition(FROGGER_START);
+                    frog2.setPosition(FROGGER_START);
                     GameState = GAME_PLAY;
                     audiofx.playGameMusic();
-                    initializeLevel(GameLevel);
+                    initializeLevel(GameLevel);*/
             }
         }
         if (keyboard.isPressed(KeyEvent.VK_H))
@@ -389,6 +445,7 @@ public class Main extends StaticScreenGame {
             case GAME_PLAY:
                 backgroundLayer.render(rc);
 
+
                 if (frog.isAlive) {
                     movingObjectsLayer.render(rc);
                     //frog.collisionObjects.get(0).render(rc);
@@ -397,7 +454,7 @@ public class Main extends StaticScreenGame {
                     frog.render(rc);
                     movingObjectsLayer.render(rc);
                 }
-
+                frog2.render(rc);
                 particleLayer.render(rc);
                 ui.render(rc);
                 break;
@@ -411,4 +468,86 @@ public class Main extends StaticScreenGame {
                 break;
         }
     }
+
+    /**
+     *
+     */
+    private void initRMQ() {
+        try {
+            connectionRMQ = RabbitUtils.newConnection2Server(hostIp, Integer.parseInt(rmqPort), "guest", "guest");
+            channelRMQ = RabbitUtils.createChannel2Server(connectionRMQ);
+            channelRMQ.exchangeDeclare(exchangeName, BuiltinExchangeType.TOPIC);
+            queueName = channelRMQ.queueDeclare().getQueue();
+        } catch (IOException | TimeoutException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void consumeRMQ(String routingKey) {
+        try {
+            channelRMQ.queueBind(queueName, exchangeName, routingKey);
+            DeliverCallback deliverCallback = (consumerTag, delivery) -> {
+                String message = (new String(delivery.getBody(), StandardCharsets.UTF_8));
+
+                executeMethod(message);
+
+                System.out.println("[x] Consumer Tag[" + consumerTag + "]Received '" + message + "'" + routingKey + exchangeName);
+
+            };
+            CancelCallback cancelCallback = (consumerTag) -> System.out.println("[x] Consumer Tag[" + consumerTag + "]CancelCallback");
+
+            channelRMQ.basicConsume(queueName, true, deliverCallback, cancelCallback);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void publishRMQ(String routingKey, String operation, String username, String value, String token) {
+
+        JSONObject message = new JSONObject();
+        message.put("operation", operation);
+        message.put("username", username);
+        message.put("value", value);
+        message.put("token", token);
+
+        try {
+            channelRMQ.basicPublish(exchangeName, routingKey, null, message.toString().getBytes(StandardCharsets.UTF_8));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void executeMethod(String message) {
+        JSONObject jsonRequest = new JSONObject(message);
+        String userName = jsonRequest.getString("username");
+        String operation = jsonRequest.getString("operation");
+        JSONObject value = new JSONObject(jsonRequest.getString("value"));
+        String token = jsonRequest.getString("token");
+
+        switch (operation) {
+            case "START-GAME":
+                GameLives = FROGGER_LIVES;
+                GameScore = 0;
+                GameLevel = STARTING_LEVEL;
+                levelTimer = DEFAULT_LEVEL_TIME;
+                frog.setPosition(FROGGER_START);
+                frog2.setPosition(FROGGER_START);
+                GameState = GAME_PLAY;
+                audiofx.playGameMusic();
+                initializeLevel(GameLevel);
+                break;
+
+            case "PLAYER-MOVE":
+                if (!userName.equals(this.userName)) {
+                    Double posX = value.getDouble("posX");
+                    Double posY = value.getDouble("posY");
+
+                    frog2.setPosition(new Vector2D(posX, posY));
+                }
+
+        }
+    }
+
+
+
 }

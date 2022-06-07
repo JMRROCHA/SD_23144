@@ -1,20 +1,26 @@
 package edu.ufp.inf.sd.project.frogger.client;
 
+import com.rabbitmq.client.*;
 import edu.ufp.inf.sd.project.frogger.resources.classes.GameSessionManagement;
-import edu.ufp.inf.sd.project.frogger.resources.classes.MessagesExchange;
 import edu.ufp.inf.sd.project.frogger.resources.classes.Player;
+import edu.ufp.inf.sd.project.frogger.resources.game.frogger.Main;
 import edu.ufp.inf.sd.project.frogger.resources.remoteInterfaces.FactoryRI;
 import edu.ufp.inf.sd.project.frogger.resources.remoteInterfaces.SessionRI;
+import edu.ufp.inf.sd.project.frogger.util.RabbitUtils;
 import edu.ufp.inf.sd.project.frogger.util.rmisetup.SetupContextRMI;
+import org.json.JSONObject;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.event.ActionEvent;
 import java.awt.event.MouseEvent;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.rmi.RemoteException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.concurrent.TimeoutException;
 
 public class ClientMain extends javax.swing.JFrame {
 
@@ -23,6 +29,12 @@ public class ClientMain extends javax.swing.JFrame {
     private final SetupContextRMI contextRMI;
     private final FactoryRI factoryRI;
     private final HashMap<String, String> argsRMQ;
+    private final String hostIp;
+    private final String rmqPort;
+    private final String exchangeName;
+    private Connection connectionRMQ;
+    private Channel channelRMQ;
+    private String queueName;
     private javax.swing.JButton jButtonNewGameSession;
     private javax.swing.JMenu jMenu1;
     private javax.swing.JMenu jMenu2;
@@ -37,12 +49,14 @@ public class ClientMain extends javax.swing.JFrame {
         this.factoryRI = factoryRI;
         ClientMain.sessionRI = sessionRI;
         this.argsRMQ = argsRMQ;
+        this.hostIp = argsRMQ.get("hostIp");
+        this.rmqPort = argsRMQ.get("rmqPort");
+        this.exchangeName = argsRMQ.get("exchangeName");
 
-        MessagesExchange messagesExchange = new MessagesExchange(argsRMQ);
-        messagesExchange.run();
-        messagesExchange.consumeRMQ("client.*");
-
+        initRMQ();
         initGuiComponents();
+
+        consumeRMQ("client.*");
 
         try {
             UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
@@ -53,7 +67,11 @@ public class ClientMain extends javax.swing.JFrame {
             setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
             setExtendedState(JFrame.MAXIMIZED_BOTH);
             setMinimumSize(new java.awt.Dimension(800, 600));
-            setTitle("GameClient");
+            try {
+                setTitle("GameClient " + sessionRI.getUsername());
+            } catch (RemoteException e) {
+                e.printStackTrace();
+            }
             setResizable(true);
             setLocationRelativeTo(null);
             setVisible(true);
@@ -222,7 +240,7 @@ public class ClientMain extends javax.swing.JFrame {
         JMenuItem item = new JMenuItem("Join Session");
 
         item.addActionListener((ActionEvent e) -> {
-            String roomName=jTableGameSessions.getModel().getValueAt(jTableGameSessions.getSelectedRow(),0).toString();
+            String roomName = jTableGameSessions.getModel().getValueAt(jTableGameSessions.getSelectedRow(), 0).toString();
             attachToGameSession(roomName);
         });
 
@@ -246,7 +264,7 @@ public class ClientMain extends javax.swing.JFrame {
 
     private void jTableGameSessionsMousePressed(MouseEvent evt) {
         if (evt.getClickCount() == 2 && jTableGameSessions.getSelectedRow() != -1) {
-            String roomName=jTableGameSessions.getModel().getValueAt(jTableGameSessions.getSelectedRow(),0).toString();
+            String roomName = jTableGameSessions.getModel().getValueAt(jTableGameSessions.getSelectedRow(), 0).toString();
             attachToGameSession(roomName);
         }
     }
@@ -272,10 +290,59 @@ public class ClientMain extends javax.swing.JFrame {
     }
 
     private void subscribeNewRoom(String roomName) {
-        MessagesExchange messagesExchange = new MessagesExchange(argsRMQ);
-        messagesExchange.run();
-        messagesExchange.consumeRMQ(roomName);
+        argsRMQ.put("routingKey", roomName);
+        try {
+            argsRMQ.put("userName", sessionRI.getUsername());
+        } catch (RemoteException e) {
+            e.printStackTrace();
+        }
+
+        Main game = new Main(argsRMQ);
+        Thread thread = new Thread(game);
+        thread.start();
+
     }
 
+    private void initRMQ() {
+        try {
+            connectionRMQ = RabbitUtils.newConnection2Server(hostIp, Integer.parseInt(rmqPort), "guest", "guest");
+            channelRMQ = RabbitUtils.createChannel2Server(connectionRMQ);
+            channelRMQ.exchangeDeclare(exchangeName, BuiltinExchangeType.TOPIC);
+            queueName = channelRMQ.queueDeclare().getQueue();
+        } catch (IOException | TimeoutException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void consumeRMQ(String routingKey) {
+        try {
+            channelRMQ.queueBind(queueName, exchangeName, routingKey);
+            DeliverCallback deliverCallback = (consumerTag, delivery) -> {
+                String message = (new String(delivery.getBody(), StandardCharsets.UTF_8));
+
+                executeMethod(message);
+
+                System.out.println("[x] Consumer Tag[" + consumerTag + "]Received '" + message + "'" + routingKey + exchangeName);
+
+            };
+            CancelCallback cancelCallback = (consumerTag) -> System.out.println("[x] Consumer Tag[" + consumerTag + "]CancelCallback");
+
+            channelRMQ.basicConsume(queueName, true, deliverCallback, cancelCallback);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void executeMethod(String message) {
+
+        JSONObject jsonRequest = new JSONObject(message);
+        String operation = jsonRequest.getString("operation");
+
+        switch (operation) {
+            case "UPDATE-TABLES":
+                updateGameSessionsTable();
+                break;
+        }
+    }
 }
 

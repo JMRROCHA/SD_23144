@@ -26,6 +26,7 @@
 package edu.ufp.inf.sd.project.frogger.resources.game.frogger;
 
 import jig.engine.util.Vector2D;
+import org.json.JSONObject;
 
 /**
  * Main sprite in the game that a player can control
@@ -44,10 +45,10 @@ public class Frogger extends MovingEntity {
     public int deltaTime = 0;
     public boolean cheating = false;
     public boolean hw_hasMoved = false;
+    public boolean isAnimating = false;
     private int curAnimationFrame = 0;
     private int finalAnimationFrame = 0;
     private long animationBeginTime = 0;
-    private boolean isAnimating = false;
     private Vector2D dirAnimation = new Vector2D(0, 0);
     // Object to follow, such as Tree Log in the river
     private MovingEntity followObject = null;

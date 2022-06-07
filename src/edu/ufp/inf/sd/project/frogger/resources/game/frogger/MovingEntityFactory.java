@@ -49,7 +49,7 @@ public class MovingEntityFactory {
      *
      * @param pos
      * @param v
-     * @param rate
+     * @param
      */
     public MovingEntityFactory(Vector2D pos, Vector2D v) {
         position = pos;

@@ -66,8 +66,13 @@
 @Set JAVAPROJ_DIST_LIB=lib
 @set JAVAPROJ_DIST_FOLDER=%JAVAPROJ%\%JAVAPROJ_DIST%
 @set JAVAPROJ_JAR_FILE=%JAVAPROJ_NAME%.jar
+
+
+
+
 @Set JAVA_LIB_FOLDER=%JAVAPROJ%\\%JAVAPROJ_DIST_LIB%
-@Set JAVA_RABBITMQ_TOOLS=%JAVA_LIB_FOLDER%\\amqp-client-5.11.0.jar;%JAVA_LIB_FOLDER%\\slf4j-api-1.7.30.jar;%JAVA_LIB_FOLDER%\\slf4j-simple-1.7.30.jar
+
+@Set JAVA_RABBITMQ_TOOLS=%JAVA_LIB_FOLDER%\\amqp-client-5.11.0.jar;%JAVA_LIB_FOLDER%\\slf4j-api-1.7.30.jar;%JAVA_LIB_FOLDER%\\slf4j-simple-1.7.30.jar;%JAVA_LIB_FOLDER%\\amqp-client-5.11.0.jar;%JAVA_LIB_FOLDER%\\jackson-annotations-2.13.2.jar;%JAVA_LIB_FOLDER%\\jackson-core-2.13.2.jar;%JAVA_LIB_FOLDER%\\jackson-databind-2.13.2.2.jar;%JAVA_LIB_FOLDER%\\java-jwt-3.19.2.jar;%JAVA_LIB_FOLDER%\\javax.activation-1.2.0.jar;%JAVA_LIB_FOLDER%\\javax.mail-1.6.2.jar;%JAVA_LIB_FOLDER%\\jig-1.7.5.jar;%JAVA_LIB_FOLDER%\\json-20210307.jar;%JAVA_LIB_FOLDER%\\slf4j-api-1.7.30.jar;%JAVA_LIB_FOLDER%\\slf4j-simple-1.7.30.jar;%JAVA_LIB_FOLDER%\\ogg-spi\\jogg-0.0.7.jar;%JAVA_LIB_FOLDER%\\ogg-spi\\ogg-spi\\jorbis-0.0.15.jar;%JAVA_LIB_FOLDER%\\ogg-spi\\tritonus_jorbis-0.3.6.jar;%JAVA_LIB_FOLDER%\\spi\\tritonus_share.jar
 
 
 @Set CLASSPATH=.;%JAVAPROJ_JAR_FILE%;%JAVA_RABBITMQ_TOOLS%;%JAVAPROJ_CLASSES_FOLDER%

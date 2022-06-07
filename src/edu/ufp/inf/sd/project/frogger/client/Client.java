@@ -1,6 +1,5 @@
 package edu.ufp.inf.sd.project.frogger.client;
 
-import com.auth0.jwt.algorithms.*;
 import edu.ufp.inf.sd.project.frogger.resources.remoteInterfaces.FactoryRI;
 import edu.ufp.inf.sd.project.frogger.resources.remoteInterfaces.SessionRI;
 import edu.ufp.inf.sd.project.frogger.util.rmisetup.SetupContextRMI;
@@ -53,8 +52,6 @@ public class Client extends javax.swing.JFrame {
 
         initGuiComponents();
         initContextRMI();
-
-        Algorithm algorithm = Algorithm.HMAC256("null");
     }
 
     public static void main(String[] args) throws RemoteException {

@@ -1,0 +1,23 @@
+ Volume in drive D is SSD-DATA
+ Volume Serial Number is 8236-9A30
+
+ Directory of D:\Development\IntelliJProjects\SD_23144\lib
+
+05/06/2022  22:53    <DIR>          .
+05/06/2022  22:53    <DIR>          ..
+04/04/2022  20:53           651ÿ381 amqp-client-5.11.0.jar
+29/05/2022  22:57            75ÿ717 jackson-annotations-2.13.2.jar
+29/05/2022  22:57           374ÿ739 jackson-core-2.13.2.jar
+29/05/2022  22:57         1ÿ535ÿ087 jackson-databind-2.13.2.2.jar
+29/05/2022  22:57            58ÿ167 java-jwt-3.19.2.jar
+18/04/2021  17:05            78ÿ030 javax.activation-1.2.0.jar
+07/02/2021  17:07           659ÿ031 javax.mail-1.6.2.jar
+18/07/2012  21:49           405ÿ770 jig-1.7.5.jar
+05/05/2021  20:39            69ÿ710 json-20210307.jar
+18/04/2022  15:00    <DIR>          ogg-spi
+05/06/2022  22:53                 0 out.txt
+04/04/2022  20:53            41ÿ472 slf4j-api-1.7.30.jar
+04/04/2022  20:53            15ÿ239 slf4j-simple-1.7.30.jar
+18/04/2022  15:00    <DIR>          spi
+              12 File(s)      3ÿ964ÿ343 bytes
+               4 Dir(s)   3ÿ392ÿ626ÿ688 bytes free
